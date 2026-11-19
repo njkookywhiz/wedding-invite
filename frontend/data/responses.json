@@ -8,5 +8,15 @@
     "carStatus": "have",
     "vacantSeats": "2",
     "timestamp": "2026-10-09T17:24:51.815Z"
+  },
+  {
+    "id": "1795099236556",
+    "name": "Test-2",
+    "people": "2",
+    "room": "single",
+    "transport": "car",
+    "carStatus": "none",
+    "vacantSeats": 0,
+    "timestamp": "2026-11-19T14:40:36.556Z"
   }
 ]
