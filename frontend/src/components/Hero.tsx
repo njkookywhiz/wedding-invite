@@ -14,18 +14,14 @@ export default function Hero() {
   const ganeshaScale = useTransform(scrollYProgress, [0, 0.2, 0.4], [1, 1, 0.3]);
   const ganeshaY = useTransform(scrollYProgress, [0, 0.2, 0.4], ["0vh", "0vh", "-28vh"]);
 
-  // Photos Animations
-  const photosOpacity = useTransform(scrollYProgress, [0.3, 0.5], [0, 1]);
-  const photosY = useTransform(scrollYProgress, [0.3, 0.5], ["20vh", "-5vh"]);
-  const photosScale = useTransform(scrollYProgress, [0.3, 0.5], [0.6, 0.9]);
-
-  // Names Animations
-  const namesOpacity = useTransform(scrollYProgress, [0.5, 0.7], [0, 1]);
-  const namesScale = useTransform(scrollYProgress, [0.5, 0.7], [0.5, 1]);
+  // Names & Couple Container Animations
+  const namesOpacity = useTransform(scrollYProgress, [0.3, 0.55], [0, 1]);
+  const namesY = useTransform(scrollYProgress, [0.3, 0.55], ["15vh", "0vh"]);
+  const namesScale = useTransform(scrollYProgress, [0.3, 0.55], [0.8, 1]);
   
-  // Parents Animations
-  const parentsOpacity = useTransform(scrollYProgress, [0.7, 0.9], [0, 1]);
-  const parentsY = useTransform(scrollYProgress, [0.7, 0.9], ["10vh", "0vh"]);
+  // Parents Details Animations (reveal smoothly after names)
+  const parentsOpacity = useTransform(scrollYProgress, [0.55, 0.8], [0, 1]);
+  const parentsY = useTransform(scrollYProgress, [0.55, 0.8], ["5vh", "0vh"]);
 
   return (
     <section ref={containerRef} className="relative h-[500vh] bg-gradient-to-r from-pink-200 via-orange-100 to-yellow-200 bg-[length:400%_400%] animate-gradient">
@@ -71,59 +67,54 @@ export default function Hero() {
             </p>
           </motion.div>
 
-          {/* Step 2-4: Heroes Container */}
+          {/* Step 2-3: Names & Parent Details Container */}
           <motion.div 
-            style={{ opacity: photosOpacity, y: photosY, scale: photosScale }}
-            className="absolute flex flex-col lg:flex-row items-center justify-center gap-4 lg:gap-20 w-full max-w-7xl mt-12"
+            style={{ opacity: namesOpacity, y: namesY, scale: namesScale }}
+            className="absolute flex flex-col items-center justify-center w-full max-w-6xl mt-16 px-4"
           >
-            
-            {/* Bride */}
-            <div className="flex flex-col items-center z-10 w-full">
-              <div className="w-[180px] h-[180px] md:w-[260px] md:h-[260px] rounded-full overflow-hidden border-[10px] border-white/90 shadow-2xl relative bg-orange-50 mb-2 backdrop-blur-sm">
-                <div className="w-full h-full relative rounded-full overflow-hidden border-2 border-orange-300">
-                  <Image src="/images/ankita.jpg" alt="Ankita" fill className="object-cover object-[center_10%]" />
-                </div>
+            <div className="flex flex-col lg:flex-row items-center justify-center gap-8 lg:gap-16 w-full">
+              
+              {/* Bride Details */}
+              <div className="flex flex-col items-center text-center w-full max-w-md">
+                <span className="text-xs md:text-sm uppercase tracking-[0.3em] text-orange-600 font-bold mb-1">
+                  The Bride
+                </span>
+                <h1 className="text-[4.5rem] md:text-[7rem] font-script leading-tight text-pink-700 drop-shadow-md py-1">
+                  Ankita
+                </h1>
+                
+                <motion.div style={{ opacity: parentsOpacity, y: parentsY }} className="flex flex-col items-center mt-2">
+                  <span className="font-script text-2xl md:text-3xl text-orange-600 mb-1">Daughter of</span>
+                  <p className="text-sm md:text-lg text-pink-700 font-serif font-bold bg-white/70 backdrop-blur-md px-6 py-2.5 rounded-full shadow-md border border-orange-200/60 whitespace-nowrap">
+                    Mr. Narender Sharma & Mrs. Uma Sharma
+                  </p>
+                </motion.div>
               </div>
               
-              <motion.h1 style={{ opacity: namesOpacity, scale: namesScale }} className="text-[4rem] md:text-[6rem] font-script leading-none text-pink-700 drop-shadow-md mb-1 bg-clip-text text-transparent bg-gradient-to-r from-pink-600 to-orange-600">
-                Ankita
-              </motion.h1>
-              
-              <motion.div style={{ opacity: parentsOpacity, y: parentsY }} className="flex flex-col items-center mt-1">
-                <span className="font-script text-3xl md:text-4xl text-orange-600 mb-1 drop-shadow-sm">Daughter of</span>
-                <p className="text-sm md:text-xl text-pink-700 font-serif font-bold bg-white/60 backdrop-blur-md px-6 py-2 rounded-full shadow-md whitespace-nowrap">
-                  Mr. Narender Sharma & Mrs. Uma Sharma
-                </p>
-              </motion.div>
-            </div>
-            
-            <motion.div 
-              style={{ opacity: namesOpacity }}
-              className="text-5xl md:text-[6rem] text-orange-500 font-script my-2 lg:my-0 drop-shadow-xl z-0"
-            >
-              &amp;
-            </motion.div>
-            
-            {/* Groom */}
-            <div className="flex flex-col items-center z-10 w-full">
-              <div className="w-[180px] h-[180px] md:w-[260px] md:h-[260px] rounded-full overflow-hidden border-[10px] border-white/90 shadow-2xl relative bg-orange-50 mb-2 backdrop-blur-sm">
-                <div className="w-full h-full relative rounded-full overflow-hidden border-2 border-orange-300">
-                  <Image src="/images/neeraj.jpg" alt="Neeraj" fill className="object-cover object-[center_10%]" />
-                </div>
+              {/* Decorative & Separator */}
+              <div className="flex flex-col items-center my-2 lg:my-0">
+                <span className="text-4xl md:text-6xl text-orange-400 font-script drop-shadow-sm">&amp;</span>
+                <div className="hidden lg:block w-px h-24 bg-gradient-to-b from-transparent via-orange-400 to-transparent mt-2"></div>
               </div>
               
-              <motion.h1 style={{ opacity: namesOpacity, scale: namesScale }} className="text-[4rem] md:text-[6rem] font-script leading-none text-pink-700 drop-shadow-md mb-1 bg-clip-text text-transparent bg-gradient-to-r from-pink-600 to-orange-600">
-                Neeraj
-              </motion.h1>
-              
-              <motion.div style={{ opacity: parentsOpacity, y: parentsY }} className="flex flex-col items-center mt-1">
-                <span className="font-script text-3xl md:text-4xl text-orange-600 mb-1 drop-shadow-sm">Son of</span>
-                <p className="text-sm md:text-xl text-pink-700 font-serif font-bold bg-white/60 backdrop-blur-md px-6 py-2 rounded-full shadow-md whitespace-nowrap">
-                  Mr. Mohan Jha & Mrs. Ranju Jha
-                </p>
-              </motion.div>
+              {/* Groom Details */}
+              <div className="flex flex-col items-center text-center w-full max-w-md">
+                <span className="text-xs md:text-sm uppercase tracking-[0.3em] text-orange-600 font-bold mb-1">
+                  The Groom
+                </span>
+                <h1 className="text-[4.5rem] md:text-[7rem] font-script leading-tight text-pink-700 drop-shadow-md py-1">
+                  Neeraj
+                </h1>
+                
+                <motion.div style={{ opacity: parentsOpacity, y: parentsY }} className="flex flex-col items-center mt-2">
+                  <span className="font-script text-2xl md:text-3xl text-orange-600 mb-1">Son of</span>
+                  <p className="text-sm md:text-lg text-pink-700 font-serif font-bold bg-white/70 backdrop-blur-md px-6 py-2.5 rounded-full shadow-md border border-orange-200/60 whitespace-nowrap">
+                    Mr. Mohan Jha & Mrs. Ranju Jha
+                  </p>
+                </motion.div>
+              </div>
+
             </div>
-            
           </motion.div>
 
         </div>
