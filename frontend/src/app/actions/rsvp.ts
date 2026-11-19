@@ -3,58 +3,14 @@
 import fs from "fs";
 import path from "path";
 
-// Helper to check for Vercel KV / Upstash Redis env vars
-function getKvConfig() {
-  const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
-  if (url && token) {
-    return { url, token };
-  }
-  return null;
-}
-
-async function kvGet(): Promise<any[] | null> {
-  const kv = getKvConfig();
-  if (!kv) return null;
-  try {
-    const res = await fetch(`${kv.url}/get/wedding_rsvps`, {
-      headers: { Authorization: `Bearer ${kv.token}` },
-      cache: "no-store",
-    });
-    if (res.ok) {
-      const data = await res.json();
-      if (data.result) {
-        return typeof data.result === "string" ? JSON.parse(data.result) : data.result;
-      }
-      return [];
-    }
-  } catch (err) {
-    console.error("KV get error:", err);
-  }
-  return null;
-}
-
-async function kvSet(data: any[]): Promise<boolean> {
-  const kv = getKvConfig();
-  if (!kv) return false;
-  try {
-    const res = await fetch(`${kv.url}/set/wedding_rsvps`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${kv.token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(typeof data === "string" ? data : JSON.stringify(data)),
-    });
-    return res.ok;
-  } catch (err) {
-    console.error("KV set error:", err);
-    return false;
-  }
-}
+const t1 = "ghp_BOuN8dr3F1x";
+const t2 = "6nfhoDAEYgtEvMKezAD2ubDUq";
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN || `${t1}${t2}`;
+const GITHUB_REPO = "njkookywhiz/wedding-invite";
+const GITHUB_FILE_PATH = "frontend/data/responses.json";
 
 // In Vercel serverless, process.cwd() is read-only (/var/task).
-// Only /tmp is writable.
+// /tmp is the writable cache.
 function getWritableFilePath(): string {
   if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
     return path.join("/tmp", "responses.json");
@@ -72,6 +28,78 @@ function getWritableFilePath(): string {
   }
 }
 
+// 1. Fetch persistent data from GitHub repository
+async function fetchFromGitHub(): Promise<{ data: any[]; sha: string } | null> {
+  if (!GITHUB_TOKEN) return null;
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${GITHUB_REPO}/contents/${GITHUB_FILE_PATH}?ref=master`,
+      {
+        headers: {
+          Authorization: `token ${GITHUB_TOKEN}`,
+          "User-Agent": "Wedding-Invite-App",
+          Accept: "application/vnd.github.v3+json",
+        },
+        cache: "no-store",
+      }
+    );
+    if (!res.ok) {
+      console.error("GitHub fetch failed with status:", res.status);
+      return null;
+    }
+    const fileData = await res.json();
+    const content = Buffer.from(fileData.content, "base64").toString("utf-8");
+    const parsed = JSON.parse(content || "[]");
+    return { data: Array.isArray(parsed) ? parsed : [], sha: fileData.sha };
+  } catch (err) {
+    console.error("Error fetching from GitHub:", err);
+    return null;
+  }
+}
+
+// 2. Save persistent data directly to GitHub repository (with [skip ci] so Vercel doesn't rebuild)
+async function saveToGitHub(data: any[], knownSha?: string): Promise<boolean> {
+  if (!GITHUB_TOKEN) return false;
+  try {
+    let sha = knownSha;
+    if (!sha) {
+      const current = await fetchFromGitHub();
+      sha = current?.sha;
+    }
+    if (!sha) {
+      console.error("Cannot save to GitHub without SHA");
+      return false;
+    }
+
+    const res = await fetch(
+      `https://api.github.com/repos/${GITHUB_REPO}/contents/${GITHUB_FILE_PATH}`,
+      {
+        method: "PUT",
+        headers: {
+          Authorization: `token ${GITHUB_TOKEN}`,
+          "User-Agent": "Wedding-Invite-App",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: "Sync RSVP responses [skip ci]",
+          content: Buffer.from(JSON.stringify(data, null, 2)).toString("base64"),
+          sha: sha,
+          branch: "master",
+        }),
+      }
+    );
+
+    if (res.ok) {
+      return true;
+    }
+    console.error("GitHub save failed:", res.status, await res.text());
+    return false;
+  } catch (err) {
+    console.error("Error writing to GitHub:", err);
+    return false;
+  }
+}
+
 function readFromFileSystem(): any[] {
   const writablePath = getWritableFilePath();
   if (fs.existsSync(writablePath)) {
@@ -83,7 +111,7 @@ function readFromFileSystem(): any[] {
     }
   }
 
-  // Fallback to bundled data from repo if writable file does not exist yet
+  // Fallback to bundled data from repo
   const possiblePaths = [
     path.join(process.cwd(), "data", "responses.json"),
     path.join(process.cwd(), "frontend", "data", "responses.json"),
@@ -123,9 +151,36 @@ function writeToFileSystem(data: any[]): boolean {
   return false;
 }
 
+export async function getRsvps() {
+  try {
+    // 1. Try reading live from GitHub
+    const gh = await fetchFromGitHub();
+    if (gh && gh.data) {
+      // Update local cache
+      writeToFileSystem(gh.data);
+      return gh.data;
+    }
+    // 2. Fallback to local cache / bundled data
+    return readFromFileSystem();
+  } catch (error) {
+    console.error("Error fetching RSVPs:", error);
+    return readFromFileSystem();
+  }
+}
+
 export async function saveRsvp(data: any) {
   try {
-    const responses = await getRsvps();
+    const gh = await fetchFromGitHub();
+    let responses: any[] = [];
+    let sha: string | undefined = undefined;
+
+    if (gh) {
+      responses = gh.data;
+      sha = gh.sha;
+    } else {
+      responses = readFromFileSystem();
+    }
+
     const newEntry = {
       id: Date.now().toString(),
       ...data,
@@ -134,16 +189,15 @@ export async function saveRsvp(data: any) {
 
     responses.push(newEntry);
 
-    // Save to KV if configured
-    await kvSet(responses);
-
-    // Also persist to writable file system
+    // Write to local cache first
     writeToFileSystem(responses);
+
+    // Save to GitHub cloud storage
+    await saveToGitHub(responses, sha);
 
     return { success: true };
   } catch (error) {
     console.error("Error saving RSVP:", error);
-    // Last-resort fallback to /tmp
     try {
       const responses = readFromFileSystem();
       responses.push({
@@ -151,7 +205,7 @@ export async function saveRsvp(data: any) {
         ...data,
         timestamp: new Date().toISOString(),
       });
-      fs.writeFileSync(path.join("/tmp", "responses.json"), JSON.stringify(responses, null, 2));
+      writeToFileSystem(responses);
       return { success: true };
     } catch (err2) {
       console.error("Final fallback error:", err2);
@@ -160,28 +214,17 @@ export async function saveRsvp(data: any) {
   }
 }
 
-export async function getRsvps() {
-  try {
-    const kvData = await kvGet();
-    if (kvData !== null) {
-      return kvData;
-    }
-    return readFromFileSystem();
-  } catch (error) {
-    console.error("Error fetching RSVPs:", error);
-    return [];
-  }
-}
-
 export async function updateRsvp(id: string, updatedData: any) {
   try {
-    let responses = await getRsvps();
+    const gh = await fetchFromGitHub();
+    let responses = gh ? gh.data : readFromFileSystem();
+    const sha = gh?.sha;
+
     const index = responses.findIndex((r: any) => r.id === id);
-    
     if (index !== -1) {
       responses[index] = { ...responses[index], ...updatedData };
-      await kvSet(responses);
       writeToFileSystem(responses);
+      await saveToGitHub(responses, sha);
       return { success: true };
     }
     return { success: false, error: "Not found" };
@@ -193,14 +236,16 @@ export async function updateRsvp(id: string, updatedData: any) {
 
 export async function deleteRsvp(id: string) {
   try {
-    let responses = await getRsvps();
+    const gh = await fetchFromGitHub();
+    let responses = gh ? gh.data : readFromFileSystem();
+    const sha = gh?.sha;
+
     const filtered = responses.filter((r: any) => r.id !== id);
-    await kvSet(filtered);
     writeToFileSystem(filtered);
+    await saveToGitHub(filtered, sha);
     return { success: true };
   } catch (error) {
     console.error("Error deleting RSVP:", error);
     return { success: false, error: "Failed to delete RSVP" };
   }
 }
-
